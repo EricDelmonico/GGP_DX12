@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "Vertex.h"
 #include "Input.h"
+#include "Mesh.h"
 
 // Needed for a helper function to read compiled shader files from the hard drive
 #pragma comment(lib, "d3dcompiler.lib")
@@ -64,9 +65,18 @@ void Game::Init()
 	//  - You'll be expanding and/or replacing these later
 	CreateRootSigAndPipelineState();
 	CreateBasicGeometry();
+	SetUpCamera();
 }
 
+void Game::LoadMeshes() 
+{
+	
+}
 
+void Game::SetUpCamera()
+{
+	camera = std::make_unique<Camera>(0, 0, 1, 2, 1, width / height);
+}
 
 // --------------------------------------------------------
 // Creates the geometry we're going to draw - a single triangle for now
@@ -91,32 +101,32 @@ void Game::CreateBasicGeometry()
 	//    knowing the exact size (in pixels) of the image/window/etc.  
 	// - Long story short: Resizing the window also resizes the triangle,
 	//    since we're describing the triangle in terms of the window itself
-	Vertex vertices[] =
-	{
-		{ XMFLOAT3(+0.0f, +0.5f, +0.0f), red },
-		{ XMFLOAT3(+0.5f, -0.5f, +0.0f), blue },
-		{ XMFLOAT3(-0.5f, -0.5f, +0.0f), green },
-	};
+	//Vertex vertices[] =
+	//{
+	//	{ XMFLOAT3(+0.0f, +0.5f, +0.0f), red },
+	//	{ XMFLOAT3(+0.5f, -0.5f, +0.0f), blue },
+	//	{ XMFLOAT3(-0.5f, -0.5f, +0.0f), green },
+	//};
 
-	// Set up the indices, which tell us which vertices to use and in which order
-	// - This is somewhat redundant for just 3 vertices (it's a simple example)
-	// - Indices are technically not required if the vertices are in the buffer 
-	//    in the correct order and each one will be used exactly once
-	// - But just to see how it's done...
-	unsigned int indices[] = { 0, 1, 2 };
+	//// Set up the indices, which tell us which vertices to use and in which order
+	//// - This is somewhat redundant for just 3 vertices (it's a simple example)
+	//// - Indices are technically not required if the vertices are in the buffer 
+	////    in the correct order and each one will be used exactly once
+	//// - But just to see how it's done...
+	//unsigned int indices[] = { 0, 1, 2 };
 
 
-	// Create the two buffers
-	vertexBuffer = DX12Helper::GetInstance().CreateStaticBuffer(sizeof(Vertex), ARRAYSIZE(vertices), vertices);
-	indexBuffer = DX12Helper::GetInstance().CreateStaticBuffer(sizeof(unsigned int), ARRAYSIZE(indices), indices);
+	//// Create the two buffers
+	//vertexBuffer = DX12Helper::GetInstance().CreateStaticBuffer(sizeof(Vertex), ARRAYSIZE(vertices), vertices);
+	//indexBuffer = DX12Helper::GetInstance().CreateStaticBuffer(sizeof(unsigned int), ARRAYSIZE(indices), indices);
 
-	// Set up the views
-	vbView.StrideInBytes = sizeof(Vertex);
-	vbView.SizeInBytes = sizeof(Vertex) * ARRAYSIZE(vertices);
-	vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
-	ibView.Format = DXGI_FORMAT_R32_UINT;
-	ibView.SizeInBytes = sizeof(unsigned int) * ARRAYSIZE(indices);
-	ibView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
+	//// Set up the views
+	//vbView.StrideInBytes = sizeof(Vertex);
+	//vbView.SizeInBytes = sizeof(Vertex) * ARRAYSIZE(vertices);
+	//vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
+	//ibView.Format = DXGI_FORMAT_R32_UINT;
+	//ibView.SizeInBytes = sizeof(unsigned int) * ARRAYSIZE(indices);
+	//ibView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
 
 }
 
@@ -139,34 +149,52 @@ void Game::CreateRootSigAndPipelineState()
 	}
 
 	// Input layout
-	const unsigned int inputElementCount = 2;
+	const unsigned int inputElementCount = 4;
 	D3D12_INPUT_ELEMENT_DESC inputElements[inputElementCount] = {};
 	{
-		// Create an input layout that describes the vertex format
-		// used by the vertex shader we're using
-		//  - This is used by the pipeline to know how to interpret the raw data
-		//     sitting inside a vertex buffer
-
-		// Set up the first element - a position, which is 3 float values
 		inputElements[0].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
-		inputElements[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
-		inputElements[0].SemanticName = "POSITION";
-		inputElements[0].SemanticIndex = 0;
+		inputElements[0].Format = DXGI_FORMAT_R32G32B32_FLOAT; // R32 G32 B32 = float3
+		inputElements[0].SemanticName = "POSITION";            // Name must match semantic in shader
+		inputElements[0].SemanticIndex = 0;                    // This is the first POSITION semantic
 
-		// Set up the second element - a color, which is 4 more float values
 		inputElements[1].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
-		inputElements[1].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-		inputElements[1].SemanticName = "COLOR";
-		inputElements[1].SemanticIndex = 0;
+		inputElements[1].Format = DXGI_FORMAT_R32G32_FLOAT;    // R32 G32 = float2
+		inputElements[1].SemanticName = "TEXCOORD";
+		inputElements[1].SemanticIndex = 0;                    // This is the first TEXCOORD semantic
+
+		inputElements[2].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
+		inputElements[2].Format = DXGI_FORMAT_R32G32B32_FLOAT; // R32 G32 B32 = float3
+		inputElements[2].SemanticName = "NORMAL";
+		inputElements[2].SemanticIndex = 0;                    // This is the first NORMAL semantic
+
+		inputElements[3].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
+		inputElements[3].Format = DXGI_FORMAT_R32G32B32_FLOAT; // R32 G32 B32 = float3
+		inputElements[3].SemanticName = "TANGENT";
+		inputElements[3].SemanticIndex = 0;                    // This is the first TANGENT semantic
 	}
 
 	// Root Signature
 	{
-		// Describe and serialize the root signature
+		// Define a table of CBV's (constant buffer views)
+		D3D12_DESCRIPTOR_RANGE cbvTable = {};
+		cbvTable.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		cbvTable.NumDescriptors = 1;
+		cbvTable.BaseShaderRegister = 0;
+		cbvTable.RegisterSpace = 0;
+		cbvTable.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+		// Define the root parameter
+		D3D12_ROOT_PARAMETER rootParam = {};
+		rootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+		rootParam.DescriptorTable.NumDescriptorRanges = 1;
+		rootParam.DescriptorTable.pDescriptorRanges = &cbvTable;
+
+		// Describe the overall the root signature
 		D3D12_ROOT_SIGNATURE_DESC rootSig = {};
 		rootSig.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-		rootSig.NumParameters = 0;
-		rootSig.pParameters = 0;
+		rootSig.NumParameters = 1;
+		rootSig.pParameters = &rootParam;
 		rootSig.NumStaticSamplers = 0;
 		rootSig.pStaticSamplers = 0;
 

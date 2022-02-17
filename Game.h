@@ -1,8 +1,12 @@
 #pragma once
 
 #include "DXCore.h"
+#include "Camera.h"
+#include "GameEntity.h"
 #include <DirectXMath.h>
 #include <wrl/client.h> // Used for ComPtr - a smart pointer for COM objects
+#include <memory>
+#include <vector>
 
 class Game 
 	: public DXCore
@@ -29,6 +33,10 @@ private:
 
 	void CreateRootSigAndPipelineState();
 
+	void SetUpCamera();
+
+	void LoadMeshes();
+
 	// Note the usage of ComPtr below
 	//  - This is a smart pointer for objects that abide by the
 	//    Component Object Model, which DirectX objects do
@@ -42,5 +50,9 @@ private:
 
 	D3D12_VERTEX_BUFFER_VIEW vbView;
 	D3D12_INDEX_BUFFER_VIEW ibView;
+
+	std::unique_ptr<Camera> camera;
+
+	std::vector<std::unique_ptr<GameEntity>> meshes;
 };
 
