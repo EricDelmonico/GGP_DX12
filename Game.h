@@ -35,7 +35,7 @@ private:
 
 	void SetUpCamera();
 
-	void LoadMeshes();
+	void LoadMeshesAndCreateGameEntities();
 
 	// Note the usage of ComPtr below
 	//  - This is a smart pointer for objects that abide by the
@@ -53,6 +53,6 @@ private:
 
 	std::unique_ptr<Camera> camera;
 
-	std::vector<std::unique_ptr<GameEntity>> meshes;
+	std::vector<std::unique_ptr<GameEntity>> gameEntities;
 };
 

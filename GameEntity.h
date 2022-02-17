@@ -7,10 +7,13 @@
 class GameEntity
 {
 public:
+    GameEntity(std::shared_ptr<Mesh> mesh, std::unique_ptr<Transform> transform);
+    ~GameEntity() {}
+
     Mesh* GetMesh() { return mesh.get(); }
     Transform* GetTransform() { return transform.get(); }
 
 private:
-    std::unique_ptr<Mesh> mesh;
+    std::shared_ptr<Mesh> mesh;
     std::unique_ptr<Transform> transform;
 };

@@ -65,12 +65,29 @@ void Game::Init()
 	//  - You'll be expanding and/or replacing these later
 	CreateRootSigAndPipelineState();
 	CreateBasicGeometry();
+	LoadMeshesAndCreateGameEntities();
 	SetUpCamera();
 }
 
-void Game::LoadMeshes() 
+void Game::LoadMeshesAndCreateGameEntities()
 {
-	
+	std::shared_ptr<Mesh> sphereMesh = std::make_shared<Mesh>(GetFullPathTo("../../Assets/Models/sphere.obj").c_str());
+	std::shared_ptr<Mesh> helixMesh = std::make_shared<Mesh>(GetFullPathTo("../../Assets/Models/helix.obj").c_str());
+	std::shared_ptr<Mesh> cubeMesh = std::make_shared<Mesh>(GetFullPathTo("../../Assets/Models/cube.obj").c_str());
+	std::shared_ptr<Mesh> coneMesh = std::make_shared<Mesh>(GetFullPathTo("../../Assets/Models/cone.obj").c_str());
+
+	gameEntities.push_back(std::make_unique<GameEntity>(sphereMesh, std::make_unique<Transform>()));
+	gameEntities.push_back(std::make_unique<GameEntity>(helixMesh, std::make_unique<Transform>()));
+	gameEntities.push_back(std::make_unique<GameEntity>(cubeMesh, std::make_unique<Transform>()));
+	gameEntities.push_back(std::make_unique<GameEntity>(coneMesh, std::make_unique<Transform>()));
+
+	// Move entities so they're not overlapping
+	float x = -(gameEntities.size() / 2.0f);
+	for (auto& e : gameEntities) 
+	{
+		e->GetTransform()->SetPosition(x, 0, 0);
+		x--;
+	}
 }
 
 void Game::SetUpCamera()
@@ -339,12 +356,16 @@ void Game::Draw(float deltaTime, float totalTime)
 		commandList->OMSetRenderTargets(1, &rtvHandles[currentSwapBuffer], true, &dsvHandle);
 		commandList->RSSetViewports(1, &viewport);
 		commandList->RSSetScissorRects(1, &scissorRect);
-		commandList->IASetVertexBuffers(0, 1, &vbView);
-		commandList->IASetIndexBuffer(&ibView);
+		//commandList->IASetVertexBuffers(0, 1, &vbView);
+		//commandList->IASetIndexBuffer(&ibView);
 		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 		// Draw
-		commandList->DrawIndexedInstanced(3, 1, 0, 0, 0);
+		//commandList->DrawIndexedInstanced(3, 1, 0, 0, 0);
+		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> descriptorHeap =
+			DX12Helper::GetInstance().GetCBVSRVDescriptorHeap();
+
+		commandList->SetDescriptorHeaps(1, descriptorHeap.GetAddressOf());
 	}
 
 	// Present
