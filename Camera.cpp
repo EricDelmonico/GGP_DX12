@@ -37,8 +37,8 @@ void Camera::Update(float dt)
 	if (input.KeyDown('S')) { transform.MoveRelative(0, 0, -speed); }
 	if (input.KeyDown('A')) { transform.MoveRelative(-speed, 0, 0); }
 	if (input.KeyDown('D')) { transform.MoveRelative(speed, 0, 0); }
-	if (input.KeyDown('X')) { transform.MoveAbsolute(0, -speed, 0); }
-	if (input.KeyDown(' ')) { transform.MoveAbsolute(0, speed, 0); }
+	if (input.KeyDown('Q')) { transform.MoveAbsolute(0, -speed, 0); }
+	if (input.KeyDown('E')) { transform.MoveAbsolute(0, speed, 0); }
 
 	// Handle mouse movement only when button is down
 	if (input.MouseLeftDown())

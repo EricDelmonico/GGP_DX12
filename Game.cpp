@@ -2,6 +2,7 @@
 #include "Vertex.h"
 #include "Input.h"
 #include "Mesh.h"
+#include "BufferStructs.h"
 
 // Needed for a helper function to read compiled shader files from the hard drive
 #pragma comment(lib, "d3dcompiler.lib")
@@ -82,17 +83,17 @@ void Game::LoadMeshesAndCreateGameEntities()
 	gameEntities.push_back(std::make_unique<GameEntity>(coneMesh, std::make_unique<Transform>()));
 
 	// Move entities so they're not overlapping
-	float x = -(gameEntities.size() / 2.0f);
+	float x = -((float)gameEntities.size());
 	for (auto& e : gameEntities) 
 	{
 		e->GetTransform()->SetPosition(x, 0, 0);
-		x--;
+		x += 2;
 	}
 }
 
 void Game::SetUpCamera()
 {
-	camera = std::make_unique<Camera>(0, 0, 1, 2, 1, width / height);
+	camera = std::make_unique<Camera>(0, 0, -10, 2, 1, (float)width / height);
 }
 
 // --------------------------------------------------------
@@ -301,6 +302,8 @@ void Game::OnResize()
 // --------------------------------------------------------
 void Game::Update(float deltaTime, float totalTime)
 {
+	camera->Update(deltaTime);
+
 	// Example input checking: Quit if the escape key is pressed
 	if (Input::GetInstance().KeyDown(VK_ESCAPE))
 		Quit();
@@ -366,6 +369,21 @@ void Game::Draw(float deltaTime, float totalTime)
 			DX12Helper::GetInstance().GetCBVSRVDescriptorHeap();
 
 		commandList->SetDescriptorHeaps(1, descriptorHeap.GetAddressOf());
+
+		VertexShaderExternalData externalData = {};
+		externalData.proj = camera->GetProjection();
+		externalData.view = camera->GetView();
+		for (auto& e : gameEntities) 
+		{
+			externalData.world = e->GetTransform()->GetWorldMatrix();
+			auto gpuHandle = DX12Helper::GetInstance().FillNexConstantBufferAndgetGPUDescriptorHandle((void*)(&externalData), sizeof(VertexShaderExternalData));
+			commandList->SetGraphicsRootDescriptorTable(0, gpuHandle);
+			auto vbView = e->GetMesh()->GetVertexBufferView();
+			commandList->IASetVertexBuffers(0, 1, &vbView);
+			auto ibView = e->GetMesh()->GetIndexBufferView();
+			commandList->IASetIndexBuffer(&ibView);
+			commandList->DrawIndexedInstanced(e->GetMesh()->GetIndexCount(), 1, 0, 0, 0);
+		}
 	}
 
 	// Present
