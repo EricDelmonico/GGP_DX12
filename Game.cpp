@@ -304,6 +304,12 @@ void Game::Update(float deltaTime, float totalTime)
 {
 	camera->Update(deltaTime);
 
+	for (auto& e : gameEntities) 
+	{
+		auto transform = e->GetTransform();
+		transform->SetPosition(transform->GetPosition().x, sinf(totalTime), transform->GetPosition().z);
+	}
+
 	// Example input checking: Quit if the escape key is pressed
 	if (Input::GetInstance().KeyDown(VK_ESCAPE))
 		Quit();
