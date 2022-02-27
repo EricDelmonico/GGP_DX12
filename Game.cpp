@@ -3,11 +3,13 @@
 #include "Input.h"
 #include "Mesh.h"
 #include "BufferStructs.h"
+#include "Material.h"
 
 // Needed for a helper function to read compiled shader files from the hard drive
 #pragma comment(lib, "d3dcompiler.lib")
 #include <d3dcompiler.h>
 #include "DX12Helper.h"
+#include "WICTextureLoader.h"
 
 // For the DirectX Math library
 using namespace DirectX;
@@ -66,21 +68,66 @@ void Game::Init()
 	//  - You'll be expanding and/or replacing these later
 	CreateRootSigAndPipelineState();
 	CreateBasicGeometry();
-	LoadMeshesAndCreateGameEntities();
+	LoadMeshesAndMaterialsAndCreateGameEntities();
 	SetUpCamera();
+
+	// Set up a light
+	lights[0] = {};
+	lights[0].Intensity = 1;
+	lights[0].Direction = DirectX::XMFLOAT3(0, -1, 2);
+	lights[0].Type = LIGHT_TYPE_DIRECTIONAL;
+	lights[0].Color = DirectX::XMFLOAT3(1, 1, 1);
+	lightCount++;
 }
 
-void Game::LoadMeshesAndCreateGameEntities()
+void Game::LoadMeshesAndMaterialsAndCreateGameEntities()
 {
+	// Load textures
+	std::shared_ptr<Material> bronze = std::make_shared<Material>(pipelineState, DirectX::XMFLOAT2(1, 1), DirectX::XMFLOAT2(0, 0));
+	std::shared_ptr<Material> cobblestone = std::make_shared<Material>(pipelineState, DirectX::XMFLOAT2(1, 1), DirectX::XMFLOAT2(0, 0));
+	std::shared_ptr<Material> scratched = std::make_shared<Material>(pipelineState, DirectX::XMFLOAT2(1, 1), DirectX::XMFLOAT2(0, 0));
+	std::shared_ptr<Material> floor = std::make_shared<Material>(pipelineState, DirectX::XMFLOAT2(1, 1), DirectX::XMFLOAT2(0, 0));
+	{
+		bronze->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/bronze_albedo.png").c_str()), 0);
+		bronze->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/bronze_normals.png").c_str()), 1);
+		bronze->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/bronze_metal.png").c_str()), 2);
+		bronze->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/bronze_roughness.png").c_str()), 3);
+		bronze->FinalizeMaterial();
+
+		cobblestone->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/cobblestone_albedo.png").c_str()), 0);
+		cobblestone->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/cobblestone_normals.png").c_str()), 1);
+		cobblestone->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/cobblestone_metal.png").c_str()), 2);
+		cobblestone->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/cobblestone_roughness.png").c_str()), 3);
+		cobblestone->FinalizeMaterial();
+
+		scratched->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/scratched_albedo.png").c_str()), 0);
+		scratched->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/scratched_normals.png").c_str()), 1);
+		scratched->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/scratched_metal.png").c_str()), 2);
+		scratched->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/scratched_roughness.png").c_str()), 3);
+		scratched->FinalizeMaterial();
+
+		floor->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/floor_albedo.png").c_str()), 0);
+		floor->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/floor_normals.png").c_str()), 1);
+		floor->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/floor_metal.png").c_str()), 2);
+		floor->AddTexture(DX12Helper::GetInstance().LoadTexture(GetFullPathTo_Wide(L"../../Assets/Textures/floor_roughness.png").c_str()), 3);
+		floor->FinalizeMaterial();
+	}
+
+	// Load meshes
 	std::shared_ptr<Mesh> sphereMesh = std::make_shared<Mesh>(GetFullPathTo("../../Assets/Models/sphere.obj").c_str());
 	std::shared_ptr<Mesh> helixMesh = std::make_shared<Mesh>(GetFullPathTo("../../Assets/Models/helix.obj").c_str());
 	std::shared_ptr<Mesh> cubeMesh = std::make_shared<Mesh>(GetFullPathTo("../../Assets/Models/cube.obj").c_str());
 	std::shared_ptr<Mesh> coneMesh = std::make_shared<Mesh>(GetFullPathTo("../../Assets/Models/cone.obj").c_str());
 
+	// create entities
 	gameEntities.push_back(std::make_unique<GameEntity>(sphereMesh, std::make_unique<Transform>()));
+	gameEntities[gameEntities.size() - 1]->SetMaterial(bronze);
 	gameEntities.push_back(std::make_unique<GameEntity>(helixMesh, std::make_unique<Transform>()));
+	gameEntities[gameEntities.size() - 1]->SetMaterial(cobblestone);
 	gameEntities.push_back(std::make_unique<GameEntity>(cubeMesh, std::make_unique<Transform>()));
+	gameEntities[gameEntities.size() - 1]->SetMaterial(scratched);
 	gameEntities.push_back(std::make_unique<GameEntity>(coneMesh, std::make_unique<Transform>()));
+	gameEntities[gameEntities.size() - 1]->SetMaterial(floor);
 
 	// Move entities so they're not overlapping
 	float x = -((float)gameEntities.size());
@@ -193,28 +240,70 @@ void Game::CreateRootSigAndPipelineState()
 
 	// Root Signature
 	{
-		// Define a table of CBV's (constant buffer views)
-		D3D12_DESCRIPTOR_RANGE cbvTable = {};
-		cbvTable.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-		cbvTable.NumDescriptors = 1;
-		cbvTable.BaseShaderRegister = 0;
-		cbvTable.RegisterSpace = 0;
-		cbvTable.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+		// Describe the range of CBVs needed for the vertex shader
+		D3D12_DESCRIPTOR_RANGE cbvRangeVS = {};
+		cbvRangeVS.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		cbvRangeVS.NumDescriptors = 1;
+		cbvRangeVS.BaseShaderRegister = 0;
+		cbvRangeVS.RegisterSpace = 0;
+		cbvRangeVS.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-		// Define the root parameter
-		D3D12_ROOT_PARAMETER rootParam = {};
-		rootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-		rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
-		rootParam.DescriptorTable.NumDescriptorRanges = 1;
-		rootParam.DescriptorTable.pDescriptorRanges = &cbvTable;
+		// Describe the range of CBVs needed for the pixel shader
+		D3D12_DESCRIPTOR_RANGE cbvRangePS = {};
+		cbvRangePS.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		cbvRangePS.NumDescriptors = 1;
+		cbvRangePS.BaseShaderRegister = 0;
+		cbvRangePS.RegisterSpace = 0;
+		cbvRangePS.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-		// Describe the overall the root signature
+		// Create a range of SRV's for textures
+		D3D12_DESCRIPTOR_RANGE srvRange = {};
+		srvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		srvRange.NumDescriptors = 4; // Set to max number of textures at once (match pixel shader!)
+		srvRange.BaseShaderRegister = 0; // Starts at s0 (match pixel shader!)
+		srvRange.RegisterSpace = 0;
+		srvRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+		// Create the root parameters
+		D3D12_ROOT_PARAMETER rootParams[3] = {};
+
+		// CBV table param for vertex shader
+		rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+		rootParams[0].DescriptorTable.NumDescriptorRanges = 1;
+		rootParams[0].DescriptorTable.pDescriptorRanges = &cbvRangeVS;
+
+		// CBV table param for pixel shader
+		rootParams[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		rootParams[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+		rootParams[1].DescriptorTable.NumDescriptorRanges = 1;
+		rootParams[1].DescriptorTable.pDescriptorRanges = &cbvRangePS;
+
+		// SRV table param
+		rootParams[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		rootParams[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+		rootParams[2].DescriptorTable.NumDescriptorRanges = 1;
+		rootParams[2].DescriptorTable.pDescriptorRanges = &srvRange;
+
+		// Create a single static sampler (available to all pixel shaders at the same slot)
+		D3D12_STATIC_SAMPLER_DESC anisoWrap = {};
+		anisoWrap.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		anisoWrap.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		anisoWrap.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		anisoWrap.Filter = D3D12_FILTER_ANISOTROPIC;
+		anisoWrap.MaxAnisotropy = 16;
+		anisoWrap.MaxLOD = D3D12_FLOAT32_MAX;
+		anisoWrap.ShaderRegister = 0;  // register(s0)
+		anisoWrap.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+		D3D12_STATIC_SAMPLER_DESC samplers[] = { anisoWrap };
+
+		// Describe and serialize the root signature
 		D3D12_ROOT_SIGNATURE_DESC rootSig = {};
 		rootSig.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-		rootSig.NumParameters = 1;
-		rootSig.pParameters = &rootParam;
-		rootSig.NumStaticSamplers = 0;
-		rootSig.pStaticSamplers = 0;
+		rootSig.NumParameters = ARRAYSIZE(rootParams);
+		rootSig.pParameters = rootParams;
+		rootSig.NumStaticSamplers = ARRAYSIZE(samplers);
+		rootSig.pStaticSamplers = samplers;
 
 		ID3DBlob* serializedRootSig = 0;
 		ID3DBlob* errors = 0;
@@ -376,18 +465,50 @@ void Game::Draw(float deltaTime, float totalTime)
 
 		commandList->SetDescriptorHeaps(1, descriptorHeap.GetAddressOf());
 
-		VertexShaderExternalData externalData = {};
-		externalData.proj = camera->GetProjection();
-		externalData.view = camera->GetView();
 		for (auto& e : gameEntities) 
 		{
+			VertexShaderExternalData externalData = {};
+			externalData.proj = camera->GetProjection();
+			externalData.view = camera->GetView();
+
 			externalData.world = e->GetTransform()->GetWorldMatrix();
-			auto gpuHandle = DX12Helper::GetInstance().FillNexConstantBufferAndgetGPUDescriptorHandle((void*)(&externalData), sizeof(VertexShaderExternalData));
+			externalData.worldInv = e->GetTransform()->GetWorldInverseTransposeMatrix();
+			
+			auto gpuHandle = DX12Helper::GetInstance().FillNextConstantBufferAndGetGPUDescriptorHandle((void*)(&externalData), sizeof(VertexShaderExternalData));
 			commandList->SetGraphicsRootDescriptorTable(0, gpuHandle);
+
+			Material* mat = e->GetMaterial();
+			if (mat != nullptr) 
+			{
+				commandList->SetPipelineState(mat->GetPipelineState().Get());
+				// Set the SRV descriptor handle for this material's textures
+				// Note: This assumes that descriptor table 2 is for textures (as per our root sig)
+				commandList->SetGraphicsRootDescriptorTable(2, mat->GetFinalGPUHandleForSRVs());
+
+				PixelShaderExternalData psData = {};
+				psData.uvScale = mat->GetUVScale();
+				psData.uvOffset = mat->GetUVOffset();
+				psData.cameraPosition = camera->GetTransform()->GetPosition();
+				psData.lightCount = lightCount;
+				psData.colorTint = mat->GetColorTint();
+				memcpy(psData.lights, &lights[0], sizeof(Light) * MAX_LIGHTS);
+				// Send this to a chunk of the constant buffer heap
+				// and grab the GPU handle for it so we can set it for this draw
+				D3D12_GPU_DESCRIPTOR_HANDLE cbHandlePS =
+					DX12Helper::GetInstance().FillNextConstantBufferAndGetGPUDescriptorHandle((void*)(&psData), sizeof(PixelShaderExternalData));
+				// Set this constant buffer handle
+				// Note: This assumes that descriptor table 1 is the
+				//       place to put this particular descriptor.  This
+				//       is based on how we set up our root signature.
+				commandList->SetGraphicsRootDescriptorTable(1, cbHandlePS);
+			}
+
 			auto vbView = e->GetMesh()->GetVertexBufferView();
 			commandList->IASetVertexBuffers(0, 1, &vbView);
+			
 			auto ibView = e->GetMesh()->GetIndexBufferView();
 			commandList->IASetIndexBuffer(&ibView);
+			
 			commandList->DrawIndexedInstanced(e->GetMesh()->GetIndexCount(), 1, 0, 0, 0);
 		}
 	}

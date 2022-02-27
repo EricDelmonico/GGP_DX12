@@ -3,6 +3,7 @@
 #include "DXCore.h"
 #include "Camera.h"
 #include "GameEntity.h"
+#include "Lights.h"
 #include <DirectXMath.h>
 #include <wrl/client.h> // Used for ComPtr - a smart pointer for COM objects
 #include <memory>
@@ -35,7 +36,7 @@ private:
 
 	void SetUpCamera();
 
-	void LoadMeshesAndCreateGameEntities();
+	void LoadMeshesAndMaterialsAndCreateGameEntities();
 
 	// Note the usage of ComPtr below
 	//  - This is a smart pointer for objects that abide by the
@@ -54,5 +55,8 @@ private:
 	std::unique_ptr<Camera> camera;
 
 	std::vector<std::unique_ptr<GameEntity>> gameEntities;
+
+	int lightCount;
+	Light lights[MAX_LIGHTS];
 };
 

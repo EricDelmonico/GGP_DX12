@@ -1,7 +1,9 @@
+#include "ShaderIncludes.hlsli"
 
 cbuffer ExternalData : register(b0)
 {
 	float4x4 world;
+	float4x4 worldInv;
 	float4x4 view;
 	float4x4 proj;
 };
@@ -37,6 +39,10 @@ struct VertexToPixel
 	//  |    |                |
 	//  v    v                v
 	float4 screenPosition	: SV_POSITION;	// XYZW position (System Value Position)
+	float2 uv				: TEXCOORD;		// UV coords
+	float3 normal			: NORMAL;		// Normal vector
+	float3 tangent			: TANGENT;		// Tangent vector
+	float3 worldPos			: POSITION;		// World position
 };
 
 // --------------------------------------------------------
@@ -61,6 +67,14 @@ VertexToPixel main( VertexShaderInput input )
 	//   a perspective projection matrix, which we'll get to in the future).
 	float4x4 wvp = mul(proj, mul(view, world));
 	output.screenPosition = mul(wvp, float4(input.localPosition, 1.0f));
+
+	output.uv = input.uv;
+
+	output.normal = mul(worldInv, input.normal);
+
+	output.tangent = mul(world, input.tangent);
+
+	output.worldPos = mul(world, float4(input.localPosition, 1.0f));
 
 	// Whatever we return will make its way through the pipeline to the
 	// next programmable stage we're using (the pixel shader for now)
